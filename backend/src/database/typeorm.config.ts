@@ -13,6 +13,7 @@ export const typeOrmConfig: DataSourceOptions = {
   entities: [__dirname + '/../**/*.entity{.ts,.js}'],
   migrations: [__dirname + '/migrations/*{.ts,.js}'],
   synchronize: true,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
   // logging: process.env.NODE_ENV === 'development',
 };
 
