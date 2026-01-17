@@ -21,7 +21,7 @@ import { RequestsModule } from './requests/requests.module';
     TypeOrmModule.forRoot(typeOrmConfig),
     CacheModule.register({
       isGlobal: true,
-      store: redisStore,
+      store: redisStore as unknown as any,
       host: process.env.REDIS_HOST || 'localhost',
       port: parseInt(process.env.REDIS_PORT || '1133'),
       password: process.env.REDIS_PASSWORD,
@@ -37,4 +37,4 @@ import { RequestsModule } from './requests/requests.module';
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }
