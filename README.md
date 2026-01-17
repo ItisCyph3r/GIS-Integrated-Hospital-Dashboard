@@ -161,6 +161,7 @@ DATABASE_NAME=hospital_dashboard
 # Redis Configuration
 REDIS_HOST=localhost
 REDIS_PORT=1133
+REDIS_PASSWORD=  # Optional: Leave empty for no password
 
 # Kafka Configuration
 KAFKA_CLIENT_ID=hospital-dashboard

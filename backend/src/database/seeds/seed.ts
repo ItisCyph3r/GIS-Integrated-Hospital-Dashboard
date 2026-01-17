@@ -153,15 +153,30 @@ async function seed() {
       lat: 9.0579,
       equipmentLevel: 'Advanced Life Support',
     }, // Abuja
-    { callSign: 'FCT-AMB-002', lng: 7.5243, lat: 9.082, equipmentLevel: 'Basic Life Support' }, // Abuja
-    { callSign: 'PH-AMB-001', lng: 7.0219, lat: 4.8156, equipmentLevel: 'Advanced Life Support' }, // Port Harcourt
+    {
+      callSign: 'FCT-AMB-002',
+      lng: 7.5243,
+      lat: 9.082,
+      equipmentLevel: 'Basic Life Support',
+    }, // Abuja
+    {
+      callSign: 'PH-AMB-001',
+      lng: 7.0219,
+      lat: 4.8156,
+      equipmentLevel: 'Advanced Life Support',
+    }, // Port Harcourt
     {
       callSign: 'KANO-AMB-001',
       lng: 8.5919,
       lat: 12.0022,
       equipmentLevel: 'Basic Life Support',
     }, // Kano
-    { callSign: 'IBD-AMB-001', lng: 3.947, lat: 7.3775, equipmentLevel: 'Advanced Life Support' }, // Ibadan
+    {
+      callSign: 'IBD-AMB-001',
+      lng: 3.947,
+      lat: 7.3775,
+      equipmentLevel: 'Advanced Life Support',
+    }, // Ibadan
     {
       callSign: 'BENUE-AMB-001',
       lng: 5.6257,

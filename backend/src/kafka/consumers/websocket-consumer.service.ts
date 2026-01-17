@@ -5,6 +5,7 @@ import {
   KafkaLocationPayload,
   KafkaStatusPayload,
 } from '../interfaces/kafka-events.interface';
+import { createKafkaConfig } from '../kafka-config.factory';
 
 interface KafkaEvent {
   payload: KafkaLocationPayload | KafkaStatusPayload;
@@ -17,11 +18,14 @@ export class WebSocketConsumerService implements OnModuleInit, OnModuleDestroy {
   private isConnected = false;
 
   constructor(private readonly trackingGateway: TrackingGateway) {
-    this.kafka = new Kafka({
-      clientId: process.env.KAFKA_CLIENT_ID || 'hospital-dashboard-websocket',
-      brokers: [`${process.env.KAFKA_HOST}:${process.env.KAFKA_PORT}`],
-      logLevel: (process.env.NODE_ENV === 'production' ? 1 : 3) as number,
-    });
+    this.kafka = new Kafka(
+      createKafkaConfig(
+        process.env.KAFKA_CLIENT_ID || 'hospital-dashboard-websocket',
+        {
+          logLevel: (process.env.NODE_ENV === 'production' ? 1 : 3) as number,
+        },
+      ),
+    );
     this.consumer = this.kafka.consumer({
       groupId: 'websocket-consumers',
     });

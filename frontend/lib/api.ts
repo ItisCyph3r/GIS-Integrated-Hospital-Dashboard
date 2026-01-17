@@ -307,3 +307,17 @@ export async function getConfig(): Promise<{
   }
   return response.json()
 }
+
+export async function checkHealth(): Promise<{
+  status: string
+  timestamp: string
+  uptime: number
+}> {
+  const response = await fetch(`${API_BASE_URL}/health`, {
+    cache: 'no-cache',
+  })
+  if (!response.ok) {
+    throw new Error('Health check failed')
+  }
+  return response.json()
+}

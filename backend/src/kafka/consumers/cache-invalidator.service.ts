@@ -11,6 +11,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Hospital } from '../../hospitals/entities/hospital.entity';
 import { HospitalIdResult } from '../../common/interfaces/database-results.interface';
+import { createKafkaConfig } from '../kafka-config.factory';
 
 @Injectable()
 export class CacheInvalidatorService implements OnModuleInit, OnModuleDestroy {
@@ -26,11 +27,14 @@ export class CacheInvalidatorService implements OnModuleInit, OnModuleDestroy {
     @InjectRepository(Hospital)
     private hospitalRepository: Repository<Hospital>,
   ) {
-    this.kafka = new Kafka({
-      clientId: process.env.KAFKA_CLIENT_ID || 'hospital-dashboard-cache',
-      brokers: [`${process.env.KAFKA_HOST}:${process.env.KAFKA_PORT}`],
-      logLevel: (process.env.NODE_ENV === 'production' ? 1 : 3) as number,
-    });
+    this.kafka = new Kafka(
+      createKafkaConfig(
+        process.env.KAFKA_CLIENT_ID || 'hospital-dashboard-cache',
+        {
+          logLevel: (process.env.NODE_ENV === 'production' ? 1 : 3) as number,
+        },
+      ),
+    );
     this.consumer = this.kafka.consumer({
       groupId: 'cache-invalidators',
     });

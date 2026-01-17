@@ -4,6 +4,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { CacheModule } from '@nestjs/cache-manager';
 import * as redisStore from 'cache-manager-redis-store';
 import { typeOrmConfig } from './database/typeorm.config';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
 import { AmbulancesModule } from './ambulances/ambulances.module';
 import { HospitalsModule } from './hospitals/hospitals.module';
 import { ProximityModule } from './proximity/proximity.module';
@@ -22,6 +24,7 @@ import { RequestsModule } from './requests/requests.module';
       store: redisStore,
       host: process.env.REDIS_HOST || 'localhost',
       port: parseInt(process.env.REDIS_PORT || '1133'),
+      password: process.env.REDIS_PASSWORD,
       ttl: 30,
     }),
     AmbulancesModule,
@@ -31,5 +34,7 @@ import { RequestsModule } from './requests/requests.module';
     TrackingModule,
     RequestsModule,
   ],
+  controllers: [AppController],
+  providers: [AppService],
 })
 export class AppModule {}

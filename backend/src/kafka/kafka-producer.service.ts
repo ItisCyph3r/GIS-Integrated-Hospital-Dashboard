@@ -3,6 +3,7 @@ import { Kafka, Producer } from 'kafkajs';
 import { randomUUID } from 'crypto';
 import { Ambulance } from '../ambulances/entities/ambulance.entity';
 import { AmbulanceStatus, Point } from '../common/types/geometry.types';
+import { createKafkaConfig } from './kafka-config.factory';
 
 export interface AmbulanceLocationEvent {
   eventId: string;
@@ -52,15 +53,18 @@ export class KafkaProducerService implements OnModuleInit, OnModuleDestroy {
   private isConnected = false;
 
   constructor() {
-    this.kafka = new Kafka({
-      clientId: process.env.KAFKA_CLIENT_ID || 'hospital-dashboard-producer',
-      brokers: [`${process.env.KAFKA_HOST}:${process.env.KAFKA_PORT}`],
-      retry: {
-        retries: 5,
-        initialRetryTime: 300,
-      },
-      logLevel: (process.env.NODE_ENV === 'production' ? 1 : 3) as number,
-    });
+    this.kafka = new Kafka(
+      createKafkaConfig(
+        process.env.KAFKA_CLIENT_ID || 'hospital-dashboard-producer',
+        {
+          retry: {
+            retries: 5,
+            initialRetryTime: 300,
+          },
+          logLevel: (process.env.NODE_ENV === 'production' ? 1 : 3) as number,
+        },
+      ),
+    );
     this.producer = this.kafka.producer();
   }
 
