@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useGeolocation } from '@/lib/hooks/useGeolocation';
 import { useWebSocket } from '@/lib/hooks/useWebSocket';
 import {
@@ -36,7 +36,7 @@ export default function UserDashboardPage() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showHospitalModal, setShowHospitalModal] = useState(false);
   const [showAmbulanceModal, setShowAmbulanceModal] = useState(false);
-  
+
   const [selectedHospital, setSelectedHospital] = useState<NearestHospital | null>(null);
   const [selectedAmbulance, setSelectedAmbulance] = useState<NearestAmbulance | null>(null);
   const [requestId, setRequestId] = useState<number | null>(null);
@@ -50,8 +50,21 @@ export default function UserDashboardPage() {
 
   useEffect(() => {
     if (coordinates) {
-      console.log('📍 User location updated:', coordinates);
-      setUserLocation(coordinates);
+      setUserLocation((prev) => {
+        if (!prev) {
+          return coordinates;
+        }
+
+        const latDiff = Math.abs(prev[1] - coordinates[1]);
+        const lngDiff = Math.abs(prev[0] - coordinates[0]);
+
+        // Approx 0.0001 degrees is ~11 meters
+        if (latDiff > 0.0001 || lngDiff > 0.0001) {
+          return coordinates;
+        }
+
+        return prev;
+      });
     }
   }, [coordinates]);
 
@@ -60,6 +73,9 @@ export default function UserDashboardPage() {
     queryKey: ['nearest-hospitals', userLocation],
     queryFn: () => findNearestHospitals(userLocation![0], userLocation![1]),
     enabled: !!userLocation && !requestId,
+    placeholderData: keepPreviousData,
+    staleTime: 1000 * 60 * 60, // Data remains fresh for 1 hour
+    gcTime: 1000 * 60 * 60 * 24, // Keep in cache for 24 hours
   });
 
   // Fetch nearest ambulances 
@@ -67,6 +83,7 @@ export default function UserDashboardPage() {
     queryKey: ['nearest-ambulances-to-user', userLocation],
     queryFn: () => findNearestAmbulancesToUser(userLocation![0], userLocation![1]),
     enabled: !!userLocation && !!selectedHospital && !selectedAmbulance,
+    staleTime: 1000 * 30, // 30 seconds
   });
 
   // Fetch current request
@@ -88,20 +105,20 @@ export default function UserDashboardPage() {
       //   console.log('--------------------------------');
       try {
         const res = await fetch(url);
-        
+
         if (!res.ok) {
           const errorText = await res.text();
           console.error('❌ API Error:', res.status, res.statusText, errorText);
-          throw new Error(`Failed to fetch ambulance: ${res.status} ${res.statusText}`);
+          throw new Error(`Failed to fetch ambulance: ${res.status}`);
         }
-        
+
         const data = await res.json();
         // console.log('--------------------------------');
         // console.log('Raw API response:', data);
         // console.log('--------------------------------');
-        
+
         const ambulance = data.data || data; // Handle both formats
-        
+
         // console.log('--------------------------------');
         // console.log('Ambulance location fetched:', {
         //   id: ambulance?.id,
@@ -125,7 +142,7 @@ export default function UserDashboardPage() {
       }
     },
     enabled: !!requestData?.data.ambulanceId && !!requestId,
-    refetchInterval: 500, // Poll every 500ms
+    refetchInterval: 500, // FAST UPDATES: Poll every 500ms for smooth movement
     refetchIntervalInBackground: true,
     retry: 3,
   });
@@ -135,16 +152,16 @@ export default function UserDashboardPage() {
     if (requestId && requestData?.data.ambulanceId) {
       // console.log('--------------------------------');
       // console.log('Ambulance query status:', {
-    //     enabled: !!requestData?.data.ambulanceId && !!requestId,
-    //     isLoading: isLoadingAmbulance,
-    //     isFetching: isFetchingAmbulance,
-    //     hasData: !!ambulanceLocationData,
-    //     hasError: !!ambulanceLocationError,
-    //     error: ambulanceLocationError,
-    //     coordinates: ambulanceLocationData?.data?.location?.coordinates,
-    //     fullData: ambulanceLocationData,
-    //   });
-    // console.log('--------------------------------');
+      //     enabled: !!requestData?.data.ambulanceId && !!requestId,
+      //     isLoading: isLoadingAmbulance,
+      //     isFetching: isFetchingAmbulance,
+      //     hasData: !!ambulanceLocationData,
+      //     hasError: !!ambulanceLocationError,
+      //     error: ambulanceLocationError,
+      //     coordinates: ambulanceLocationData?.data?.location?.coordinates,
+      //     fullData: ambulanceLocationData,
+      //   });
+      // console.log('--------------------------------');
     }
   }, [requestId, requestData?.data.ambulanceId, isLoadingAmbulance, isFetchingAmbulance, ambulanceLocationData, ambulanceLocationError]);
 
@@ -227,9 +244,9 @@ export default function UserDashboardPage() {
             // console.log('Map resize triggered');
           }
         };
-        
+
         resizeMap();
-        
+
         setTimeout(resizeMap, 100);
         setTimeout(resizeMap, 300);
         setTimeout(resizeMap, 500);
@@ -239,13 +256,13 @@ export default function UserDashboardPage() {
       map.current.on('error', (e) => {
         console.error('❌ Map error:', e);
       });
-      
+
       const resizeMap = () => {
         if (map.current) {
           map.current.resize();
         }
       };
-      
+
       setTimeout(resizeMap, 100);
       setTimeout(resizeMap, 300);
       setTimeout(resizeMap, 500);
@@ -283,7 +300,7 @@ export default function UserDashboardPage() {
       : userLocation;
 
     const shouldBeDraggable = !requestId;
-    const needsRecreation = userMarkerRef.current && 
+    const needsRecreation = userMarkerRef.current &&
       (markerDraggableRef.current !== shouldBeDraggable);
 
     if (userMarkerRef.current && !needsRecreation) {
@@ -312,9 +329,9 @@ export default function UserDashboardPage() {
       "></div>
     `;
 
-    userMarkerRef.current = new maplibregl.Marker({ 
-      element: el, 
-      draggable: shouldBeDraggable 
+    userMarkerRef.current = new maplibregl.Marker({
+      element: el,
+      draggable: shouldBeDraggable
     })
       .setLngLat(locationToUse)
       .setPopup(
@@ -333,10 +350,10 @@ export default function UserDashboardPage() {
       });
     }
   }, [
-    map, 
-    userLocation, 
-    requestId, 
-    requestData?.data?.status, 
+    map,
+    userLocation,
+    requestId,
+    requestData?.data?.status,
     ambulanceLocationData?.data?.location?.coordinates?.[0],
     ambulanceLocationData?.data?.location?.coordinates?.[1],
   ]);
@@ -363,20 +380,20 @@ export default function UserDashboardPage() {
     const createCircle = (center: [number, number], radiusInMeters: number) => {
       const points = 64;
       const coords: [number, number][] = [];
-      
+
       for (let i = 0; i < points; i++) {
         const angle = (i * 360) / points;
         const dx = radiusInMeters * Math.cos((angle * Math.PI) / 180);
         const dy = radiusInMeters * Math.sin((angle * Math.PI) / 180);
-        
+
         const latOffset = dy / 111320;
         const lngOffset = dx / (111320 * Math.cos((center[1] * Math.PI) / 180));
-        
+
         coords.push([center[0] + lngOffset, center[1] + latOffset]);
       }
-      
+
       coords.push(coords[0]);
-      
+
       return {
         type: 'Feature' as const,
         geometry: {
@@ -392,7 +409,7 @@ export default function UserDashboardPage() {
 
     const addAccuracyCircle = () => {
       if (!map.current) return;
-      
+
       try {
         if (map.current.getSource('accuracy-circle')) {
           if (map.current.getLayer('accuracy-circle-fill')) {
@@ -465,7 +482,7 @@ export default function UserDashboardPage() {
       console.log('Map not ready for hospital markers');
       return;
     }
-    
+
     if (!map.current.loaded()) {
       // console.log('Map not loaded yet, waiting...');
       const loadHandler = () => {
@@ -586,7 +603,7 @@ export default function UserDashboardPage() {
     // });
     // console.log('--------------------------------');
     const ambulanceToShow = selectedAmbulance || (requestId && ambulanceLocationData?.data);
-    
+
     if (!ambulanceToShow) {
       if (ambulanceMarkerRef.current) {
         ambulanceMarkerRef.current.remove();
@@ -607,14 +624,14 @@ export default function UserDashboardPage() {
     if (ambulanceMarkerRef.current && isMoving) {
       const oldCoords = ambulanceMarkerRef.current.getLngLat();
       ambulanceMarkerRef.current.setLngLat(coords);
-    //   console.log('--------------------------------');
-    //   console.log('Ambulance position updated:', {
-    //     from: [oldCoords.lng, oldCoords.lat],
-    //     to: coords,
-    //     ambulanceId: ambulance.id,
-    //     callSign: ambulance.callSign,
-    //   });
-    //   console.log('--------------------------------');
+      //   console.log('--------------------------------');
+      //   console.log('Ambulance position updated:', {
+      //     from: [oldCoords.lng, oldCoords.lat],
+      //     to: coords,
+      //     ambulanceId: ambulance.id,
+      //     callSign: ambulance.callSign,
+      //   });
+      //   console.log('--------------------------------');
       return;
     }
 
@@ -662,8 +679,8 @@ export default function UserDashboardPage() {
 
     // console.log('✅ Ambulance marker created:', ambulance.callSign, isMoving ? '(moving)' : '(selected)');
   }, [
-    selectedAmbulance, 
-    requestId, 
+    selectedAmbulance,
+    requestId,
     ambulanceLocationData?.data?.location?.coordinates?.[0], // Longitude
     ambulanceLocationData?.data?.location?.coordinates?.[1], // Latitude
     ambulanceLocationData?.data?.id, // Ambulance ID
@@ -675,7 +692,7 @@ export default function UserDashboardPage() {
 
     const coords = ambulanceLocationData.data.location.coordinates;
     const currentPos = ambulanceMarkerRef.current.getLngLat();
-    
+
     if (Math.abs(currentPos.lng - coords[0]) > 0.000001 || Math.abs(currentPos.lat - coords[1]) > 0.000001) {
       ambulanceMarkerRef.current.setLngLat(coords);
       console.log('📍 Ambulance marker position updated:', coords);
@@ -693,7 +710,7 @@ export default function UserDashboardPage() {
 
     const ambulanceCoords = ambulanceLocationData.data.location.coordinates;
     const currentPos = userMarkerRef.current.getLngLat();
-    
+
     if (Math.abs(currentPos.lng - ambulanceCoords[0]) > 0.000001 || Math.abs(currentPos.lat - ambulanceCoords[1]) > 0.000001) {
       userMarkerRef.current.setLngLat(ambulanceCoords);
       // console.log('👤 User marker following ambulance:', ambulanceCoords);
@@ -862,19 +879,19 @@ export default function UserDashboardPage() {
 
         {/* Map */}
         <div className="flex-1 relative w-full" style={{ height: '100%', minHeight: '100%', flex: '1 1 auto' }}>
-          <div 
-            ref={mapContainer} 
-            className="absolute inset-0 w-full h-full" 
-            style={{ 
+          <div
+            ref={mapContainer}
+            className="absolute inset-0 w-full h-full"
+            style={{
               background: '#e5e7eb',
               width: '100%',
               height: '100%'
-            }} 
+            }}
           />
-          
+
           {/* Map Style Switcher - Top Left */}
           <MapStyleSwitcher currentStyle={mapStyle} onStyleChange={setMapStyle} />
-          
+
           {/* Recenter Button - Bottom Right */}
           <button
             onClick={handleRecenter}
@@ -914,16 +931,15 @@ export default function UserDashboardPage() {
           <div className="fixed inset-0 bg-black/30 z-40 md:hidden" onClick={() => setSidebarCollapsed(true)} />
         )}
         <div
-          className={`bg-white dark:bg-gray-900 border-t md:border-l border-gray-200 dark:border-gray-800 shadow-2xl transition-all duration-300 overflow-hidden ${
-            sidebarCollapsed 
-              ? 'translate-y-full md:translate-y-0 w-full md:w-0 h-0 md:h-auto' 
-              : 'fixed md:relative bottom-0 md:bottom-auto left-0 md:left-auto right-0 md:right-auto md:inset-auto w-full md:w-[40%] h-[40vh] md:h-auto max-h-[40vh] md:max-h-none z-50 md:z-auto'
-          }`}
+          className={`bg-white dark:bg-gray-900 border-t md:border-l border-gray-200 dark:border-gray-800 shadow-2xl transition-all duration-300 overflow-hidden ${sidebarCollapsed
+            ? 'translate-y-full md:translate-y-0 w-full md:w-0 h-0 md:h-auto'
+            : 'fixed md:relative bottom-0 md:bottom-auto left-0 md:left-auto right-0 md:right-auto md:inset-auto w-full md:w-[40%] h-[40vh] md:h-auto max-h-[40vh] md:max-h-none z-50 md:z-auto'
+            }`}
         >
           <div className="h-full flex flex-col relative">
             {/* Drawer handle indicator on mobile */}
             <div className="md:hidden absolute top-2 left-1/2 transform -translate-x-1/2 w-12 h-1 bg-gray-300 dark:bg-gray-700 rounded-full z-10" />
-            
+
             {/* Sidebar Header */}
             <div className="p-3 sm:p-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between flex-shrink-0 mt-3 md:mt-0">
               <h2 className="font-semibold text-sm sm:text-base text-gray-900 dark:text-white">
@@ -965,7 +981,7 @@ export default function UserDashboardPage() {
                         </span>
                       )} */}
                     </div>
-                    
+
                     {accuracy && accuracy > 100 && (
                       <div className="mb-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
                         <p className="text-sm text-red-800 dark:text-red-200 font-medium">
